@@ -6,10 +6,10 @@ Mobile-first React + TypeScript UI for browsing your CLZ-style comics library an
 
 ```bash
 npm install
-VITE_API_BASE_URL=http://127.0.0.1:8000 npm run dev
+npm run dev
 ```
 
-The `VITE_API_BASE_URL` env var is optional (defaults to `http://127.0.0.1:8000`). Use your machine's LAN IP when testing from a phone on the same WiFi, e.g.:
+The dev server proxies API and media requests to the FastAPI backend so you don't need to deal with browser CORS errors. It targets `http://127.0.0.1:8000` by default; override it with the `VITE_API_BASE_URL` env var when your backend lives elsewhere, e.g.:
 
 ```bash
 VITE_API_BASE_URL=http://192.168.1.50:8000 npm run dev -- --host 0.0.0.0 --port 4173

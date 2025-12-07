@@ -1,6 +1,6 @@
-const DEFAULT_API_BASE = 'http://127.0.0.1:8000';
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? DEFAULT_API_BASE;
+const DEFAULT_API_TARGET = 'http://127.0.0.1:8000';
+const RAW_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '');
+const API_BASE_URL = import.meta.env.DEV ? '' : (RAW_API_BASE_URL ?? DEFAULT_API_TARGET);
 
 export type Nullable<T> = T | null | undefined;
 

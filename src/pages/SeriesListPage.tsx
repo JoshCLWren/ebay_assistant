@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listSeries, type Series } from '../api';
 import { PageLayout } from '../components/PageLayout';
@@ -17,6 +17,7 @@ export function SeriesListPage() {
   const debouncedSearch = useDebouncedValue(search, 400);
   const [refreshTick, setRefreshTick] = useState(0);
   const [inlineMessage, setInlineMessage] = useState<string | null>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,7 +47,7 @@ export function SeriesListPage() {
     };
   }, [debouncedSearch, refreshTick]);
 
-  const handleLoadMore = async () => {
+  const handleLoadMore = useCallback(async () => {
     if (!nextToken) return;
     setLoadingMore(true);
     try {
@@ -63,7 +64,31 @@ export function SeriesListPage() {
     } finally {
       setLoadingMore(false);
     }
-  };
+  }, [nextToken, debouncedSearch, series.length]);
+
+  useEffect(() => {
+    const observerTarget = loadMoreSentinelRef.current;
+    if (!observerTarget || !nextToken || loadingMore || loading) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          handleLoadMore();
+        }
+      },
+      {
+        rootMargin: '200px',
+      },
+    );
+
+    observer.observe(observerTarget);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [nextToken, handleLoadMore, loadingMore, loading]);
 
   let content: React.ReactNode;
   if (loading) {
@@ -113,6 +138,7 @@ export function SeriesListPage() {
           </button>
         ) : null}
         {inlineMessage ? <p className="mt-2 text-center text-xs text-rose-400">{inlineMessage}</p> : null}
+        <div aria-hidden ref={loadMoreSentinelRef} />
       </>
     );
   }

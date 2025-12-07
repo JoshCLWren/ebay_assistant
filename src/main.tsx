@@ -1,10 +1,9 @@
 /**
  * To run locally:
  *   1. cd frontend && npm install
- *   2. VITE_API_BASE_URL=http://127.0.0.1:8000 npm run dev
- *      (omit the env var to fall back to http://127.0.0.1:8000)
- * The backend URL is pulled from import.meta.env.VITE_API_BASE_URL so tweak it
- * if you are serving the FastAPI instance from a different host/IP.
+ *   2. npm run dev
+ * The dev server proxies API requests to the FastAPI backend specified by
+ * VITE_API_BASE_URL (defaults to http://127.0.0.1:8000) to avoid CORS issues.
  */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
