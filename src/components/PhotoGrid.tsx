@@ -10,7 +10,7 @@ export function PhotoGrid({ images }: PhotoGridProps) {
 
   if (!images.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">
+      <div className="rounded-2xl border border-dashed border-ink-700 bg-ink-900 px-4 py-8 text-center text-sm text-slate-300">
         No photos yet. Upload shots as you prep this copy.
       </div>
     );
@@ -24,14 +24,14 @@ export function PhotoGrid({ images }: PhotoGridProps) {
             key={image.relative_path}
             type="button"
             onClick={() => setActive(image)}
-            className="group overflow-hidden rounded-xl bg-slate-200 shadow-card"
+            className="group overflow-hidden rounded-xl bg-ink-800 shadow-card"
           >
             <img
               src={buildImageUrl(image.relative_path)}
               alt={image.image_type}
               className="h-28 w-full object-cover transition group-hover:scale-105"
             />
-            <div className="px-2 py-1 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+            <div className="px-2 py-1 text-left text-xs font-semibold uppercase tracking-wide text-slate-300">
               {image.image_type.replace(/_/g, ' ')}
             </div>
           </button>
@@ -44,7 +44,7 @@ export function PhotoGrid({ images }: PhotoGridProps) {
           onClick={() => setActive(null)}
         >
           <div
-            className="relative max-h-full max-w-md overflow-hidden rounded-3xl bg-slate-900 shadow-2xl"
+            className="relative max-h-full max-w-md overflow-hidden rounded-3xl bg-ink-900 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <img
@@ -54,7 +54,7 @@ export function PhotoGrid({ images }: PhotoGridProps) {
             />
             <button
               type="button"
-              className="absolute right-4 top-4 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-ink-900"
+              className="absolute right-4 top-4 rounded-full border border-white/10 bg-ink-900/80 px-4 py-2 text-sm font-semibold text-white shadow-card"
               onClick={() => setActive(null)}
             >
               Close

@@ -82,20 +82,22 @@ export function SeriesListPage() {
             <Link
               key={item.series_id}
               to={`/series/${item.series_id}`}
-              className="block rounded-3xl bg-white p-4 shadow-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-500"
+              className="block rounded-3xl bg-ink-900 p-4 shadow-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-400"
             >
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-base font-semibold text-ink-900">{item.title ?? 'Untitled Series'}</p>
-                  <p className="text-sm text-slate-500">{item.publisher ?? 'Publisher unknown'}</p>
+                  <p className="text-base font-semibold text-white">{item.title ?? 'Untitled Series'}</p>
+                  <p className="text-sm text-slate-400">{item.publisher ?? 'Publisher unknown'}</p>
                 </div>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                <span className="rounded-full bg-ink-800 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200">
                   #{item.series_id}
                 </span>
               </div>
-              <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-                {item.age ? <span className="rounded-full bg-slate-100 px-2 py-1">{item.age}</span> : null}
-                {item.series_group ? <span className="rounded-full bg-slate-100 px-2 py-1">{item.series_group}</span> : null}
+              <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+                {item.age ? <span className="rounded-full bg-ink-800 px-2 py-1 text-slate-200">{item.age}</span> : null}
+                {item.series_group ? (
+                  <span className="rounded-full bg-ink-800 px-2 py-1 text-slate-200">{item.series_group}</span>
+                ) : null}
               </div>
             </Link>
           ))}
@@ -110,7 +112,7 @@ export function SeriesListPage() {
             {loadingMore ? 'Loading…' : 'Load more series'}
           </button>
         ) : null}
-        {inlineMessage ? <p className="mt-2 text-center text-xs text-rose-600">{inlineMessage}</p> : null}
+        {inlineMessage ? <p className="mt-2 text-center text-xs text-rose-400">{inlineMessage}</p> : null}
       </>
     );
   }
@@ -118,14 +120,14 @@ export function SeriesListPage() {
   return (
     <PageLayout title="Library" subtitle="Browse series pulled from CLZ">
       <div className="mb-4">
-        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Search</label>
+        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Search</label>
         <input
           type="search"
           name="series-search"
           placeholder="Start typing a title…"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base shadow-card focus:border-ink-500 focus:outline-none"
+          className="mt-2 w-full rounded-2xl border border-ink-700 bg-ink-900 px-4 py-3 text-base text-white shadow-card placeholder:text-slate-500 focus:border-ink-400 focus:outline-none"
         />
       </div>
       {content}

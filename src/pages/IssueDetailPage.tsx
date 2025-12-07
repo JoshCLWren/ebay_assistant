@@ -104,11 +104,11 @@ export function IssueDetailPage() {
       { label: 'Variant', value: issue.variant ?? 'Standard' },
     ];
     return (
-      <dl className="grid grid-cols-2 gap-4 rounded-3xl bg-white p-4 shadow-card">
+      <dl className="grid grid-cols-2 gap-4 rounded-3xl bg-ink-900 p-4 shadow-card">
         {rows.map((row) => (
           <div key={row.label}>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{row.label}</dt>
-            <dd className="mt-1 text-base font-semibold text-ink-900">{row.value}</dd>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">{row.label}</dt>
+            <dd className="mt-1 text-base font-semibold text-white">{row.value}</dd>
           </div>
         ))}
       </dl>
@@ -128,8 +128,8 @@ export function IssueDetailPage() {
         {metadata}
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-ink-900">Copies</h2>
-            <span className="text-xs text-slate-500">{copies.length} on file</span>
+            <h2 className="text-base font-semibold text-white">Copies</h2>
+            <span className="text-xs text-slate-400">{copies.length} on file</span>
           </div>
           {copies.length ? (
             <>
@@ -138,30 +138,30 @@ export function IssueDetailPage() {
                   <Link
                     key={copy.copy_id}
                     to={`/series/${seriesId}/issues/${issue.issue_id}/copies/${copy.copy_id}`}
-                    className="block rounded-3xl bg-white p-4 shadow-card"
+                    className="block rounded-3xl bg-ink-900 p-4 shadow-card"
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                        <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">
                           Copy #{copy.copy_id}
                         </p>
-                        <p className="text-lg font-semibold text-ink-900">{copy.grade ?? 'Ungraded'}</p>
-                        <p className="text-sm text-slate-500">{copy.raw_slabbed ?? copy.format ?? 'Format unknown'}</p>
+                        <p className="text-lg font-semibold text-white">{copy.grade ?? 'Ungraded'}</p>
+                        <p className="text-sm text-slate-400">{copy.raw_slabbed ?? copy.format ?? 'Format unknown'}</p>
                       </div>
-                      <div className="text-right text-xs text-slate-500">
+                      <div className="text-right text-xs text-slate-400">
                         <p>Photos</p>
-                        <p className="text-xl font-semibold text-ink-900">{photoCounts[copy.copy_id] ?? '…'}</p>
+                        <p className="text-xl font-semibold text-white">{photoCounts[copy.copy_id] ?? '…'}</p>
                       </div>
                     </div>
-                    <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold uppercase text-slate-500">
+                    <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold uppercase text-slate-300">
                       {copy.custom_label ? (
-                        <span className="rounded-full bg-slate-100 px-3 py-1">{copy.custom_label}</span>
+                        <span className="rounded-full bg-ink-800 px-3 py-1 text-slate-100">{copy.custom_label}</span>
                       ) : null}
                       {copy.purchase_store ? (
-                        <span className="rounded-full bg-slate-100 px-3 py-1">{copy.purchase_store}</span>
+                        <span className="rounded-full bg-ink-800 px-3 py-1 text-slate-100">{copy.purchase_store}</span>
                       ) : null}
                       {copy.value !== null && copy.value !== undefined ? (
-                        <span className="rounded-full bg-ink-900 px-3 py-1 text-white">
+                        <span className="rounded-full bg-ink-800 px-3 py-1 text-white">
                           Value ${copy.value.toFixed(2)}
                         </span>
                       ) : null}
@@ -173,12 +173,12 @@ export function IssueDetailPage() {
                 <button
                   type="button"
                   onClick={loadMoreCopies}
-                  className="mt-5 w-full rounded-full bg-ink-900 px-4 py-3 text-sm font-semibold text-white shadow-card"
+                  className="mt-5 w-full rounded-full bg-ink-800 px-4 py-3 text-sm font-semibold text-white shadow-card"
                 >
                   Load more copies
                 </button>
               ) : null}
-              {inlineMessage ? <p className="mt-2 text-center text-xs text-rose-600">{inlineMessage}</p> : null}
+              {inlineMessage ? <p className="mt-2 text-center text-xs text-rose-400">{inlineMessage}</p> : null}
             </>
           ) : (
             <EmptyState title="No copies recorded" />

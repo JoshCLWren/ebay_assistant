@@ -127,11 +127,11 @@ export function SeriesDetailPage() {
       { label: 'Series ID', value: `#${series.series_id}` },
     ];
     return (
-      <dl className="grid grid-cols-2 gap-4 rounded-3xl bg-white p-4 shadow-card">
+      <dl className="grid grid-cols-2 gap-4 rounded-3xl bg-ink-900 p-4 shadow-card">
         {rows.map((row) => (
           <div key={row.label}>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{row.label}</dt>
-            <dd className="mt-1 text-base font-semibold text-ink-900">{row.value}</dd>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">{row.label}</dt>
+            <dd className="mt-1 text-base font-semibold text-white">{row.value}</dd>
           </div>
         ))}
       </dl>
@@ -151,8 +151,8 @@ export function SeriesDetailPage() {
         {infoRows}
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-ink-900">Issues</h2>
-            {statsLoading ? <span className="text-xs text-slate-500">Syncing counts…</span> : null}
+            <h2 className="text-base font-semibold text-white">Issues</h2>
+            {statsLoading ? <span className="text-xs text-slate-400">Syncing counts…</span> : null}
           </div>
           {issues.length ? (
             <div className="space-y-3">
@@ -162,29 +162,27 @@ export function SeriesDetailPage() {
                   <Link
                     key={issue.issue_id}
                     to={`/series/${series.series_id}/issues/${issue.issue_id}`}
-                    className="block rounded-3xl bg-white p-4 shadow-card"
+                    className="block rounded-3xl bg-ink-900 p-4 shadow-card"
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                        <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">
                           Issue #{issue.issue_nr}
                         </p>
-                        <p className="text-lg font-semibold text-ink-900">{issue.title ?? issue.full_title ?? 'Untitled'}</p>
-                        {issue.variant ? (
-                          <p className="text-sm text-slate-500">Variant: {issue.variant}</p>
-                        ) : null}
+                        <p className="text-lg font-semibold text-white">{issue.title ?? issue.full_title ?? 'Untitled'}</p>
+                        {issue.variant ? <p className="text-sm text-slate-400">Variant: {issue.variant}</p> : null}
                       </div>
-                      <span className="text-sm text-slate-500">{issue.cover_date ?? issue.cover_year ?? '—'}</span>
+                      <span className="text-sm text-slate-400">{issue.cover_date ?? issue.cover_year ?? '—'}</span>
                     </div>
-                    <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold uppercase text-slate-500">
-                      <span className="rounded-full bg-slate-100 px-3 py-1">
+                    <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold uppercase text-slate-300">
+                      <span className="rounded-full bg-ink-800 px-3 py-1 text-slate-100">
                         Copies: {stat ? stat.copyCount : '…'}
                       </span>
-                      <span className="rounded-full bg-slate-100 px-3 py-1">
+                      <span className="rounded-full bg-ink-800 px-3 py-1 text-slate-100">
                         Photos: {stat ? stat.photoCount : '…'}
                       </span>
                       {issue.story_arc ? (
-                        <span className="rounded-full bg-ink-900 px-3 py-1 text-white">{issue.story_arc}</span>
+                        <span className="rounded-full bg-ink-800 px-3 py-1 text-white">{issue.story_arc}</span>
                       ) : null}
                     </div>
                   </Link>
@@ -194,12 +192,12 @@ export function SeriesDetailPage() {
                 <button
                   type="button"
                   onClick={loadMoreIssues}
-                  className="w-full rounded-full bg-ink-900 px-4 py-3 text-sm font-semibold text-white shadow-card"
+                  className="w-full rounded-full bg-ink-800 px-4 py-3 text-sm font-semibold text-white shadow-card"
                 >
                   Load more issues
                 </button>
               ) : null}
-              {inlineMessage ? <p className="text-center text-xs text-rose-600">{inlineMessage}</p> : null}
+              {inlineMessage ? <p className="text-center text-xs text-rose-400">{inlineMessage}</p> : null}
             </div>
           ) : (
             <EmptyState title="No issues yet" />

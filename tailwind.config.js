@@ -21,7 +21,7 @@ export default {
         display: ['"SF Pro Display"', '"Inter"', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        card: '0 2px 8px rgba(0,0,0,0.08)',
+        card: '0 10px 30px rgba(0,0,0,0.45)',
       },
     },
   },

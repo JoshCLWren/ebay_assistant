@@ -5,8 +5,8 @@ interface ErrorStateProps {
 
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
-    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-5 text-rose-700">
-      <p className="text-sm font-medium">{message}</p>
+    <div className="rounded-2xl border border-rose-900/50 bg-rose-950/70 px-4 py-5 text-rose-200">
+      <p className="text-sm font-medium text-rose-100">{message}</p>
       {onRetry ? (
         <button
           type="button"

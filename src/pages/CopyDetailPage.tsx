@@ -140,11 +140,11 @@ export function CopyDetailPage() {
       { label: 'Barcode', value: copy.barcode ?? '—' },
     ];
     return (
-      <dl className="grid grid-cols-2 gap-4 rounded-3xl bg-white p-4 shadow-card">
+      <dl className="grid grid-cols-2 gap-4 rounded-3xl bg-ink-900 p-4 shadow-card">
         {rows.map((row) => (
           <div key={row.label}>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{row.label}</dt>
-            <dd className="mt-1 text-base font-semibold text-ink-900 break-words">{row.value}</dd>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">{row.label}</dt>
+            <dd className="mt-1 break-words text-base font-semibold text-white">{row.value}</dd>
           </div>
         ))}
       </dl>
@@ -162,42 +162,42 @@ export function CopyDetailPage() {
     body = (
       <div className="space-y-6">
         {metadata}
-        <section className="rounded-3xl bg-white p-4 shadow-card">
+        <section className="rounded-3xl bg-ink-900 p-4 shadow-card">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-ink-900">Notes</h2>
+            <h2 className="text-base font-semibold text-white">Notes</h2>
             {notesSavedAt ? (
-              <span className="text-xs text-slate-500">Saved {new Date(notesSavedAt).toLocaleTimeString()}</span>
+              <span className="text-xs text-slate-400">Saved {new Date(notesSavedAt).toLocaleTimeString()}</span>
             ) : null}
           </div>
           <textarea
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             placeholder="Capture defects, pressing notes, or location tips…"
-            className="mt-3 min-h-[120px] w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-base focus:border-ink-500 focus:outline-none"
+            className="mt-3 min-h-[120px] w-full rounded-2xl border border-ink-800 bg-slate-950 px-3 py-3 text-base text-white placeholder:text-slate-500 focus:border-ink-400 focus:outline-none"
           />
           <button
             type="button"
             onClick={handleNotesSave}
             disabled={notesSaving}
-            className="mt-3 w-full rounded-full bg-ink-900 px-4 py-3 text-sm font-semibold text-white shadow-card disabled:opacity-60"
+            className="mt-3 w-full rounded-full bg-ink-800 px-4 py-3 text-sm font-semibold text-white shadow-card disabled:opacity-60"
           >
             {notesSaving ? 'Saving…' : 'Save notes'}
           </button>
         </section>
 
-        <section className="rounded-3xl bg-white p-4 shadow-card">
+        <section className="rounded-3xl bg-ink-900 p-4 shadow-card">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-base font-semibold text-ink-900">Photos</h2>
-              <p className="text-sm text-slate-500">{images.length} uploaded</p>
+              <h2 className="text-base font-semibold text-white">Photos</h2>
+              <p className="text-sm text-slate-400">{images.length} uploaded</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <label className="flex flex-col text-xs font-semibold uppercase text-slate-500">
+              <label className="flex flex-col text-xs font-semibold uppercase text-slate-400">
                 Image type
                 <select
                   value={imageType}
                   onChange={(event) => setImageType(event.target.value as ImageType)}
-                  className="mt-1 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-ink-900 focus:border-ink-500 focus:outline-none"
+                  className="mt-1 rounded-2xl border border-ink-800 bg-slate-950 px-3 py-2 text-sm font-semibold text-white focus:border-ink-400 focus:outline-none"
                 >
                   {IMAGE_TYPE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -209,7 +209,7 @@ export function CopyDetailPage() {
               <label
                 htmlFor="photo-upload"
                 className={`flex flex-1 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed px-4 py-3 text-center text-sm font-semibold ${
-                  uploading ? 'border-slate-300 text-slate-400' : 'border-ink-900 text-ink-900'
+                  uploading ? 'border-ink-700 text-slate-500' : 'border-white/40 text-white'
                 }`}
               >
                 {uploading ? 'Uploading…' : 'Add photos'}
@@ -227,7 +227,7 @@ export function CopyDetailPage() {
               />
             </div>
           </div>
-          {uploadMessage ? <p className="mt-3 text-xs text-slate-500">{uploadMessage}</p> : null}
+          {uploadMessage ? <p className="mt-3 text-xs text-slate-400">{uploadMessage}</p> : null}
           <div className="mt-4">
             <PhotoGrid images={images} />
           </div>
