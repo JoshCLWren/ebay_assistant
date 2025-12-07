@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getSeries, listCopyImages, listCopies, listIssues, type Issue, type Series } from '../api';
-import { PageLayout } from '../components/PageLayout';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
 import { EmptyState } from '../components/EmptyState';
+import { PageLayout } from '../components/PageLayout';
+import { SeriesSearchToolbar } from '../components/SeriesSearchToolbar';
 
 type IssueStats = Record<number, { copyCount: number; photoCount: number }>;
 
@@ -158,6 +159,7 @@ export function SeriesDetailPage() {
             <div className="space-y-3">
               {issues.map((issue) => {
                 const stat = stats[issue.issue_id];
+                const issueNumberDisplay = issue.issue_nr?.trim() ? issue.issue_nr : String(issue.issue_id);
                 return (
                   <Link
                     key={issue.issue_id}
@@ -166,11 +168,10 @@ export function SeriesDetailPage() {
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">
-                          Issue #{issue.issue_nr}
+                        <p className="text-4xl font-black uppercase tracking-tight text-orange-400 leading-none">
+                          {issueNumberDisplay}
                         </p>
-                        <p className="text-lg font-semibold text-white">{issue.title ?? issue.full_title ?? 'Untitled'}</p>
-                        {issue.variant ? <p className="text-sm text-slate-400">Variant: {issue.variant}</p> : null}
+                        {issue.variant ? <p className="mt-2 text-sm text-slate-400">Variant: {issue.variant}</p> : null}
                       </div>
                       <span className="text-sm text-slate-400">{issue.cover_date ?? issue.cover_year ?? '—'}</span>
                     </div>
@@ -208,7 +209,13 @@ export function SeriesDetailPage() {
   }
 
   return (
-    <PageLayout title={series?.title ?? 'Series'} subtitle={series?.publisher ?? ''} backTo={-1}>
+    <PageLayout
+      title={series?.title ?? 'Series'}
+      subtitle={series?.publisher ?? ''}
+      backTo={-1}
+      homeTo="/"
+      rightSlot={<SeriesSearchToolbar />}
+    >
       {body}
     </PageLayout>
   );

@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { listSeries, buildImageUrl, API_BASE_URL } from "./api";
 
-// Simple mock for global fetch.
-// No fancy typing, keeps TypeScript happy.
+// Simple mock for global fetch. Cast to align with the real fetch signature.
 const mockFetch = vi.fn();
 
-(globalThis as any).fetch = mockFetch as any;
+const globalWithFetch = globalThis as typeof globalThis & { fetch: typeof fetch };
+globalWithFetch.fetch = mockFetch as unknown as typeof fetch;
 
 beforeEach(() => {
   mockFetch.mockReset();
@@ -77,5 +77,13 @@ describe("buildImageUrl", () => {
 
     expect(url).toContain("/collection_images/1963/issue_1_A/front.jpg");
     expect(url.startsWith(API_BASE_URL)).toBe(true);
+  });
+
+  it("appends cache bust token when provided", () => {
+    const path = "1963/issue_1_A/front.jpg";
+    const url = buildImageUrl(path, "next");
+
+    expect(url).toContain("/collection_images/1963/issue_1_A/front.jpg");
+    expect(url).toContain("cb=next");
   });
 });

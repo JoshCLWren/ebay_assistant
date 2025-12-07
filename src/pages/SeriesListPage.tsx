@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { listSeries, type Series } from '../api';
+import { API_BASE_URL, listSeries, type Series } from '../api';
 import { PageLayout } from '../components/PageLayout';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
@@ -94,7 +94,12 @@ export function SeriesListPage() {
   if (loading) {
     content = <LoadingState label="Gathering your library…" />;
   } else if (error) {
-    content = <ErrorState message={error} onRetry={() => setRefreshTick((value) => value + 1)} />;
+    content = (
+      <div className="space-y-4">
+        <ErrorState message={error} onRetry={() => setRefreshTick((value) => value + 1)} />
+        <ConnectionDebug />
+      </div>
+    );
   } else if (!series.length) {
     content = (
       <EmptyState title="No series found" description="Try a different search term or make sure the backend is running." />
@@ -158,5 +163,24 @@ export function SeriesListPage() {
       </div>
       {content}
     </PageLayout>
+  );
+}
+
+function ConnectionDebug() {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'unknown';
+  return (
+    <div className="rounded-2xl border border-ink-800 bg-ink-900/60 px-4 py-3 text-xs text-slate-400">
+      <p className="font-semibold uppercase tracking-wide text-slate-300">Connection debug</p>
+      <p className="mt-1 break-words">
+        Frontend origin: <span className="text-white">{origin}</span>
+      </p>
+      <p className="break-words">
+        API base: <span className="text-white">{API_BASE_URL}</span>
+      </p>
+      <p className="mt-1 text-[11px] text-slate-500">
+        If the API base shows 127.0.0.1 on a phone/tablet, it cannot reach your desktop backend. Point{' '}
+        <code className="rounded bg-ink-800 px-1">VITE_API_BASE_URL</code> to your LAN IP and restart the dev server.
+      </p>
+    </div>
   );
 }

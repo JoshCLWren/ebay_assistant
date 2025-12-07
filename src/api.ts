@@ -3,6 +3,15 @@ export const API_BASE_URL = (
   "http://127.0.0.1:8000"
 ).replace(/\/$/, "");
 
+let hasLoggedApiBase = false;
+function logApiBase() {
+  if (!hasLoggedApiBase && typeof window !== "undefined") {
+    // Helps when debugging from other devices on the LAN where 127.0.0.1 is wrong.
+    console.info("[api] Using base URL:", API_BASE_URL);
+    hasLoggedApiBase = true;
+  }
+}
+
 export type Nullable<T> = T | null | undefined;
 
 export interface Series {
@@ -117,13 +126,23 @@ export interface ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      Accept: "application/json",
-      ...init?.headers,
-    },
-    ...init,
-  });
+  logApiBase();
+  const url = `${API_BASE_URL}${path}`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        ...init?.headers,
+      },
+      ...init,
+    });
+  } catch (error) {
+    console.error("[api] Network error while calling", url, error);
+    throw new Error(
+      `Unable to reach API at ${API_BASE_URL}. Make sure it's accessible from this device.`,
+    );
+  }
 
   if (!response.ok) {
     const error: ApiError = new Error(
@@ -158,7 +177,10 @@ function toQuery(params: Record<string, string | number | undefined | null>) {
   return query ? `?${query}` : "";
 }
 
-export function buildImageUrl(rawPath: string | null | undefined): string {
+export function buildImageUrl(
+  rawPath: string | null | undefined,
+  cacheBust?: string | number,
+): string {
   if (!rawPath) return "";
 
   const path = rawPath.trim();
@@ -171,18 +193,26 @@ export function buildImageUrl(rawPath: string | null | undefined): string {
 
   // If the API already gave you a URL path like "/collection_images/..."
   if (path.startsWith("/collection_images/")) {
-    return new URL(path, API_BASE_URL).toString();
+    return withCacheBust(new URL(path, API_BASE_URL).toString(), cacheBust);
   }
 
   // If it starts with "collection_images/..." (no leading slash)
   if (path.startsWith("collection_images/")) {
     const urlPath = `/${path}`;
-    return new URL(urlPath, API_BASE_URL).toString();
+    return withCacheBust(new URL(urlPath, API_BASE_URL).toString(), cacheBust);
   }
 
   // Otherwise we assume it is your DB style relative path: "1963/issue_1_A/..."
   const urlPath = `/collection_images/${path}`;
-  return new URL(urlPath, API_BASE_URL).toString();
+  return withCacheBust(new URL(urlPath, API_BASE_URL).toString(), cacheBust);
+}
+
+function withCacheBust(url: string, cacheBust?: string | number) {
+  if (cacheBust === undefined || cacheBust === null || cacheBust === "") {
+    return url;
+  }
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}cb=${encodeURIComponent(String(cacheBust))}`;
 }
 
 export async function listSeries(
@@ -266,17 +296,20 @@ export function uploadCopyImage(
   copyId: number,
   file: File,
   imageType: ImageType,
-  signal?: AbortSignal,
+  options: { signal?: AbortSignal; replaceExisting?: boolean } = {},
 ) {
   const formData = new FormData();
   formData.append("image_type", imageType);
+  if (options.replaceExisting) {
+    formData.append("replace_existing", "true");
+  }
   formData.append("file", file);
   return fetch(
     `${API_BASE_URL}/v1/series/${seriesId}/issues/${issueId}/copies/${copyId}/images`,
     {
       method: "POST",
       body: formData,
-      signal,
+      signal: options.signal,
     },
   ).then(async (response) => {
     if (!response.ok) {
@@ -301,6 +334,7 @@ export async function uploadCopyImagesWithPolling(args: {
   files: File[];
   imageType: ImageType;
   signal?: AbortSignal;
+  replaceExisting?: boolean;
   onStatus?: (payload: { fileName: string; status: JobStatus }) => void;
 }): Promise<ComicImage[]> {
   const results: ComicImage[] = [];
@@ -312,7 +346,10 @@ export async function uploadCopyImagesWithPolling(args: {
       args.copyId,
       file,
       args.imageType,
-      args.signal,
+      {
+        signal: args.signal,
+        replaceExisting: args.replaceExisting,
+      },
     );
     const finalJob = await pollJob(job.job_id, args.signal);
     if (finalJob.status === "failed") {
@@ -326,6 +363,20 @@ export async function uploadCopyImagesWithPolling(args: {
     args.onStatus?.({ fileName: file.name, status: "completed" });
   }
   return results;
+}
+
+export function deleteCopyImage(
+  seriesId: number,
+  issueId: number,
+  copyId: number,
+  fileName: string,
+) {
+  return request<void>(
+    `/v1/series/${seriesId}/issues/${issueId}/copies/${copyId}/images/${fileName}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 async function pollJob(jobId: string, signal?: AbortSignal) {

@@ -3,9 +3,11 @@ import { buildImageUrl, type ComicImage } from '../api';
 
 interface PhotoGridProps {
   images: ComicImage[];
+  onDelete?: (image: ComicImage) => void;
+  deletingFileName?: string | null;
 }
 
-export function PhotoGrid({ images }: PhotoGridProps) {
+export function PhotoGrid({ images, onDelete, deletingFileName }: PhotoGridProps) {
   const [active, setActive] = useState<ComicImage | null>(null);
 
   if (!images.length) {
@@ -20,21 +22,33 @@ export function PhotoGrid({ images }: PhotoGridProps) {
     <>
       <div className="grid grid-cols-3 gap-3">
         {images.map((image) => (
-          <button
-            key={image.relative_path}
-            type="button"
-            onClick={() => setActive(image)}
-            className="group overflow-hidden rounded-xl bg-ink-800 shadow-card"
-          >
-            <img
-              src={buildImageUrl(image.relative_path)}
-              alt={image.image_type}
-              className="h-28 w-full object-cover transition group-hover:scale-105"
-            />
-            <div className="px-2 py-1 text-left text-xs font-semibold uppercase tracking-wide text-slate-300">
-              {image.image_type.replace(/_/g, ' ')}
+          <div key={image.relative_path} className="overflow-hidden rounded-xl bg-ink-800 shadow-card">
+            <button
+              type="button"
+              onClick={() => setActive(image)}
+              aria-label={`Preview ${image.image_type} photo`}
+              className="block w-full overflow-hidden"
+            >
+              <img
+                src={buildImageUrl(image.relative_path, image.file_name)}
+                alt={image.image_type}
+                className="h-28 w-full object-cover transition hover:scale-105"
+              />
+            </button>
+            <div className="flex items-center justify-between px-2 py-1 text-left text-xs font-semibold uppercase tracking-wide text-slate-300">
+              <span className="truncate">{image.image_type.replace(/_/g, ' ')}</span>
+              {onDelete ? (
+                <button
+                  type="button"
+                  onClick={() => onDelete(image)}
+                  disabled={Boolean(deletingFileName)}
+                  className="ml-2 rounded-full border border-white/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-200 disabled:opacity-50"
+                >
+                  {deletingFileName === image.file_name ? 'Deleting…' : 'Delete'}
+                </button>
+              ) : null}
             </div>
-          </button>
+          </div>
         ))}
       </div>
 
@@ -48,7 +62,7 @@ export function PhotoGrid({ images }: PhotoGridProps) {
             onClick={(event) => event.stopPropagation()}
           >
             <img
-              src={buildImageUrl(active.relative_path)}
+              src={buildImageUrl(active.relative_path, active.file_name)}
               alt={active.image_type}
               className="max-h-[80vh] w-full object-contain"
             />

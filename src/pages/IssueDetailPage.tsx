@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getIssue, listCopyImages, listCopies, type Copy, type Issue } from '../api';
-import { PageLayout } from '../components/PageLayout';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
 import { EmptyState } from '../components/EmptyState';
+import { PageLayout } from '../components/PageLayout';
+import { SeriesSearchToolbar } from '../components/SeriesSearchToolbar';
 
 type CopyStats = Record<number, number>;
 
@@ -21,6 +22,8 @@ export function IssueDetailPage() {
   const [refreshTick, setRefreshTick] = useState(0);
   const fetchedCopyRef = useRef<Set<number>>(new Set());
   const [inlineMessage, setInlineMessage] = useState<string | null>(null);
+  const [autoNavigated, setAutoNavigated] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +82,16 @@ export function IssueDetailPage() {
     };
   }, [copies, issueId, seriesId]);
 
+  useEffect(() => {
+    if (autoNavigated || loading || error || copies.length !== 1) {
+      return;
+    }
+    const [onlyCopy] = copies;
+    if (!onlyCopy) return;
+    navigate(`/series/${seriesId}/issues/${issueId}/copies/${onlyCopy.copy_id}`, { replace: true });
+    setAutoNavigated(true);
+  }, [autoNavigated, copies, error, issueId, loading, navigate, seriesId]);
+
   const loadMoreCopies = async () => {
     if (!copyToken) return;
     try {
@@ -98,7 +111,7 @@ export function IssueDetailPage() {
   const metadata = useMemo(() => {
     if (!issue) return null;
     const rows = [
-      { label: 'Issue #', value: issue.issue_nr },
+      { label: 'Number', value: issue.issue_nr },
       { label: 'Cover Date', value: issue.cover_date ?? issue.cover_year ?? '—' },
       { label: 'Story Arc', value: issue.story_arc ?? '—' },
       { label: 'Variant', value: issue.variant ?? 'Standard' },
@@ -142,9 +155,6 @@ export function IssueDetailPage() {
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">
-                          Copy #{copy.copy_id}
-                        </p>
                         <p className="text-lg font-semibold text-white">{copy.grade ?? 'Ungraded'}</p>
                         <p className="text-sm text-slate-400">{copy.raw_slabbed ?? copy.format ?? 'Format unknown'}</p>
                       </div>
@@ -188,11 +198,17 @@ export function IssueDetailPage() {
     );
   }
 
+  const issueNumberDisplay = issue?.issue_nr ?? issueId;
+  const pageTitle = String(issueNumberDisplay);
+
   return (
     <PageLayout
-      title={issue?.title ?? issue?.full_title ?? 'Issue'}
+      title={pageTitle}
+      titleClassName="text-4xl font-black uppercase tracking-tight text-orange-400 leading-tight"
       subtitle={`Series #${seriesId}`}
       backTo={`/series/${seriesId}`}
+      homeTo="/"
+      rightSlot={<SeriesSearchToolbar />}
     >
       {body}
     </PageLayout>

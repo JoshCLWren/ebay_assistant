@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PhotoGrid } from './PhotoGrid';
 import type { ComicImage } from '../api';
 
@@ -33,7 +33,7 @@ describe('PhotoGrid', () => {
       />,
     );
 
-    const thumbButtons = screen.getAllByRole('button');
+    const thumbButtons = screen.getAllByRole('button', { name: /preview/i });
     expect(thumbButtons).toHaveLength(2);
 
     await user.click(thumbButtons[0]);
@@ -42,5 +42,18 @@ describe('PhotoGrid', () => {
 
     await user.click(closeButton);
     expect(screen.queryByRole('button', { name: /close/i })).not.toBeInTheDocument();
+  });
+
+  it('surfaces delete buttons when a handler is provided', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    const images = [mockImage({ file_name: 'delete-me.jpg' })];
+
+    render(<PhotoGrid images={images} onDelete={onDelete} deletingFileName={null} />);
+
+    const deleteButton = screen.getByRole('button', { name: /delete/i });
+    await user.click(deleteButton);
+
+    expect(onDelete).toHaveBeenCalledWith(images[0]);
   });
 });
