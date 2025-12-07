@@ -25,3 +25,11 @@ npm run preview
 ```
 
 This runs the Vite production build and serves the generated `dist/` output locally.
+
+## Linting
+
+```bash
+npm run lint
+```
+
+Runs the ESLint suite locally; the same command executes in CI via `.github/workflows/lint.yml` to guard pull requests.
