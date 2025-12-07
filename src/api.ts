@@ -1,6 +1,7 @@
-const DEFAULT_API_TARGET = 'http://127.0.0.1:8000';
-const RAW_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '');
-const API_BASE_URL = import.meta.env.DEV ? '' : (RAW_API_BASE_URL ?? DEFAULT_API_TARGET);
+export const API_BASE_URL = (
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
+  "http://127.0.0.1:8000"
+).replace(/\/$/, "");
 
 export type Nullable<T> = T | null | undefined;
 
@@ -77,15 +78,15 @@ export interface ListCopiesResponse {
 }
 
 export type ImageType =
-  | 'front'
-  | 'back'
-  | 'spine'
-  | 'staples'
-  | 'interior_front_cover'
-  | 'interior_back_cover'
-  | 'misc';
+  | "front"
+  | "back"
+  | "spine"
+  | "staples"
+  | "interior_front_cover"
+  | "interior_back_cover"
+  | "misc";
 
-export type JobStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
+export type JobStatus = "pending" | "in_progress" | "completed" | "failed";
 
 export interface ComicImage {
   series_id: number;
@@ -118,14 +119,16 @@ export interface ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
-      Accept: 'application/json',
+      Accept: "application/json",
       ...init?.headers,
     },
     ...init,
   });
 
   if (!response.ok) {
-    const error: ApiError = new Error(`Request failed (${response.status})`) as ApiError;
+    const error: ApiError = new Error(
+      `Request failed (${response.status})`,
+    ) as ApiError;
     error.status = response.status;
     try {
       const body = await response.json();
@@ -147,29 +150,49 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 function toQuery(params: Record<string, string | number | undefined | null>) {
   const search = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
+    if (value !== undefined && value !== null && value !== "") {
       search.append(key, String(value));
     }
   });
   const query = search.toString();
-  return query ? `?${query}` : '';
+  return query ? `?${query}` : "";
 }
 
-export function buildImageUrl(relativePath: string) {
-  if (!relativePath) return '';
-  if (/^https?:\/\//i.test(relativePath)) {
-    return relativePath;
+export function buildImageUrl(rawPath: string | null | undefined): string {
+  if (!rawPath) return "";
+
+  const path = rawPath.trim();
+  if (!path) return "";
+
+  // Already a full URL: just use it as is
+  if (/^https?:\/\//i.test(path) || /^data:/i.test(path)) {
+    return path;
   }
-  const normalized = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
-  return `${API_BASE_URL}${normalized}`;
+
+  // If the API already gave you a URL path like "/collection_images/..."
+  if (path.startsWith("/collection_images/")) {
+    return new URL(path, API_BASE_URL).toString();
+  }
+
+  // If it starts with "collection_images/..." (no leading slash)
+  if (path.startsWith("collection_images/")) {
+    const urlPath = `/${path}`;
+    return new URL(urlPath, API_BASE_URL).toString();
+  }
+
+  // Otherwise we assume it is your DB style relative path: "1963/issue_1_A/..."
+  const urlPath = `/collection_images/${path}`;
+  return new URL(urlPath, API_BASE_URL).toString();
 }
 
-export async function listSeries(params: {
-  pageSize?: number;
-  pageToken?: string | null;
-  titleSearch?: string | null;
-  publisher?: string | null;
-} = {}): Promise<ListSeriesResponse> {
+export async function listSeries(
+  params: {
+    pageSize?: number;
+    pageToken?: string | null;
+    titleSearch?: string | null;
+    publisher?: string | null;
+  } = {},
+): Promise<ListSeriesResponse> {
   const query = toQuery({
     page_size: params.pageSize,
     page_token: params.pageToken,
@@ -183,7 +206,10 @@ export function getSeries(seriesId: number) {
   return request<Series>(`/v1/series/${seriesId}`);
 }
 
-export function listIssues(seriesId: number, params: { pageSize?: number; pageToken?: string | null } = {}) {
+export function listIssues(
+  seriesId: number,
+  params: { pageSize?: number; pageToken?: string | null } = {},
+) {
   const query = toQuery({
     page_size: params.pageSize,
     page_token: params.pageToken,
@@ -195,7 +221,10 @@ export function getIssue(seriesId: number, issueId: number) {
   return request<Issue>(`/v1/series/${seriesId}/issues/${issueId}`);
 }
 
-export function listCopies(issueId: number, params: { pageSize?: number; pageToken?: string | null } = {}) {
+export function listCopies(
+  issueId: number,
+  params: { pageSize?: number; pageToken?: string | null } = {},
+) {
   const query = toQuery({
     page_size: params.pageSize,
     page_token: params.pageToken,
@@ -207,18 +236,28 @@ export function getCopy(issueId: number, copyId: number) {
   return request<Copy>(`/v1/issues/${issueId}/copies/${copyId}`);
 }
 
-export function updateCopy(issueId: number, copyId: number, payload: Partial<Copy>) {
+export function updateCopy(
+  issueId: number,
+  copyId: number,
+  payload: Partial<Copy>,
+) {
   return request<Copy>(`/v1/issues/${issueId}/copies/${copyId}`, {
-    method: 'PATCH',
+    method: "PATCH",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   });
 }
 
-export function listCopyImages(seriesId: number, issueId: number, copyId: number) {
-  return request<ListCopyImagesResponse>(`/v1/series/${seriesId}/issues/${issueId}/copies/${copyId}/images`);
+export function listCopyImages(
+  seriesId: number,
+  issueId: number,
+  copyId: number,
+) {
+  return request<ListCopyImagesResponse>(
+    `/v1/series/${seriesId}/issues/${issueId}/copies/${copyId}/images`,
+  );
 }
 
 export function uploadCopyImage(
@@ -230,15 +269,20 @@ export function uploadCopyImage(
   signal?: AbortSignal,
 ) {
   const formData = new FormData();
-  formData.append('image_type', imageType);
-  formData.append('file', file);
-  return fetch(`${API_BASE_URL}/v1/series/${seriesId}/issues/${issueId}/copies/${copyId}/images`, {
-    method: 'POST',
-    body: formData,
-    signal,
-  }).then(async (response) => {
+  formData.append("image_type", imageType);
+  formData.append("file", file);
+  return fetch(
+    `${API_BASE_URL}/v1/series/${seriesId}/issues/${issueId}/copies/${copyId}/images`,
+    {
+      method: "POST",
+      body: formData,
+      signal,
+    },
+  ).then(async (response) => {
     if (!response.ok) {
-      const error: ApiError = new Error(`Upload failed (${response.status})`) as ApiError;
+      const error: ApiError = new Error(
+        `Upload failed (${response.status})`,
+      ) as ApiError;
       error.status = response.status;
       throw error;
     }
@@ -261,18 +305,25 @@ export async function uploadCopyImagesWithPolling(args: {
 }): Promise<ComicImage[]> {
   const results: ComicImage[] = [];
   for (const file of args.files) {
-    args.onStatus?.({ fileName: file.name, status: 'in_progress' });
-    const job = await uploadCopyImage(args.seriesId, args.issueId, args.copyId, file, args.imageType, args.signal);
+    args.onStatus?.({ fileName: file.name, status: "in_progress" });
+    const job = await uploadCopyImage(
+      args.seriesId,
+      args.issueId,
+      args.copyId,
+      file,
+      args.imageType,
+      args.signal,
+    );
     const finalJob = await pollJob(job.job_id, args.signal);
-    if (finalJob.status === 'failed') {
-      args.onStatus?.({ fileName: file.name, status: 'failed' });
-      throw new Error(finalJob.detail ?? 'Upload failed');
+    if (finalJob.status === "failed") {
+      args.onStatus?.({ fileName: file.name, status: "failed" });
+      throw new Error(finalJob.detail ?? "Upload failed");
     }
     const image = finalJob.result;
     if (image) {
       results.push(image);
     }
-    args.onStatus?.({ fileName: file.name, status: 'completed' });
+    args.onStatus?.({ fileName: file.name, status: "completed" });
   }
   return results;
 }
@@ -281,10 +332,10 @@ async function pollJob(jobId: string, signal?: AbortSignal) {
   let attempts = 0;
   while (true) {
     if (signal?.aborted) {
-      throw new DOMException('Polling aborted', 'AbortError');
+      throw new DOMException("Polling aborted", "AbortError");
     }
     const job = await getUploadJob(jobId);
-    if (job.status === 'completed' || job.status === 'failed') {
+    if (job.status === "completed" || job.status === "failed") {
       return job;
     }
     attempts += 1;
@@ -295,5 +346,3 @@ async function pollJob(jobId: string, signal?: AbortSignal) {
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-export { API_BASE_URL };

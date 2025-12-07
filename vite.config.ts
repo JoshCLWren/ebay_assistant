@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv } from 'vite';
+import { configDefaults } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 const DEFAULT_API_TARGET = 'http://127.0.0.1:8000';
@@ -32,6 +33,26 @@ export default defineConfig(({ mode }) => {
     },
     preview: {
       proxy: buildProxyConfig(apiTarget),
+    },
+    test: {
+      environment: 'jsdom',
+      setupFiles: './src/test/setup.ts',
+      exclude: [...configDefaults.exclude, 'e2e/**'],
+      poolOptions: {
+        threads: {
+          singleThread: true,
+        },
+      },
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'lcov'],
+        thresholds: {
+          statements: 95,
+          branches: 95,
+          functions: 95,
+          lines: 95,
+        },
+      },
     },
   };
 });
