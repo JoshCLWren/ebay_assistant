@@ -49,7 +49,6 @@ export function CopyDetailPage() {
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSavedAt, setNotesSavedAt] = useState<number | null>(null);
   const [currentImageType, setCurrentImageType] = useState<ImageType>(IMAGE_TYPE_OPTIONS[0].value);
-  const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
@@ -57,6 +56,7 @@ export function CopyDetailPage() {
   const [deletingFileName, setDeletingFileName] = useState<string | null>(null);
   const [guidedCaptureActive, setGuidedCaptureActive] = useState(false);
   const [guidedCaptureIndex, setGuidedCaptureIndex] = useState(0);
+  const [activeUploads, setActiveUploads] = useState(0);
   const getImageTypeLabel = useCallback(
     (type: ImageType) => IMAGE_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? 'Photo',
     [],
@@ -205,35 +205,41 @@ export function CopyDetailPage() {
     endGuidedCapture();
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selected = event.target.files ? Array.from(event.target.files) : [];
     if (!selected.length) return;
-    setUploading(true);
-    setUploadMessage('Uploading…');
-    try {
-      const uploaded = await uploadCopyImagesWithPolling({
+    const captureType = currentImageType;
+    const shouldReplace = replaceExisting;
+    selected.forEach((file) => {
+      setUploadMessage(`Uploading ${file.name}…`);
+      setActiveUploads((count) => count + 1);
+      uploadCopyImagesWithPolling({
         seriesId,
         issueId,
         copyId,
-        files: selected,
-        imageType: currentImageType,
-        replaceExisting,
+        files: [file],
+        imageType: captureType,
+        replaceExisting: shouldReplace,
         onStatus: ({ fileName, status }) => {
           setUploadMessage(`${fileName}: ${status.replace('_', ' ')}`);
         },
-      });
-      await refreshImages();
-      setUploadMessage(`Uploaded ${uploaded.length} photo${uploaded.length === 1 ? '' : 's'}`);
-      if (guidedCaptureActive) {
-        advanceGuidedCapture();
-      }
-    } catch (err) {
-      setUploadMessage(err instanceof Error ? err.message : 'Upload failed');
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      })
+        .then(async (uploaded) => {
+          await refreshImages();
+          setUploadMessage(`Uploaded ${uploaded.length} photo${uploaded.length === 1 ? '' : 's'}`);
+        })
+        .catch((err) => {
+          setUploadMessage(err instanceof Error ? err.message : 'Upload failed');
+        })
+        .finally(() => {
+          setActiveUploads((count) => Math.max(0, count - 1));
+        });
+    });
+    if (guidedCaptureActive) {
+      advanceGuidedCapture();
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -318,12 +324,11 @@ export function CopyDetailPage() {
               <button
                 type="button"
                 onClick={handleCaptureClick}
-                disabled={uploading}
-                className={`flex flex-1 items-center justify-center rounded-2xl border-2 border-dashed px-4 py-3 text-center text-sm font-semibold ${
-                  uploading ? 'border-ink-700 text-slate-500' : 'border-white/40 text-white'
-                }`}
+                className="flex flex-1 items-center justify-center rounded-2xl border-2 border-dashed border-white/40 px-4 py-3 text-center text-sm font-semibold text-white"
               >
-                {uploading ? 'Uploading…' : `Capture ${getImageTypeLabel(currentImageType)}`}
+                {`Capture ${getImageTypeLabel(currentImageType)}${
+                  activeUploads ? ` · ${activeUploads} uploading` : ''
+                }`}
               </button>
               <input
                 id="photo-upload"
@@ -332,7 +337,6 @@ export function CopyDetailPage() {
                 accept="image/*"
                 capture="environment"
                 className="hidden"
-                disabled={uploading}
                 onChange={handleFileChange}
               />
             </div>
