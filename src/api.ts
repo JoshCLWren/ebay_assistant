@@ -166,7 +166,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-function toQuery(params: Record<string, string | number | undefined | null>) {
+function toQuery(params: Record<string, string | number | boolean | undefined | null>) {
   const search = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") {
@@ -221,6 +221,7 @@ export async function listSeries(
     pageToken?: string | null;
     titleSearch?: string | null;
     publisher?: string | null;
+    hasImage?: boolean | null;
   } = {},
 ): Promise<ListSeriesResponse> {
   const query = toQuery({
@@ -228,6 +229,7 @@ export async function listSeries(
     page_token: params.pageToken,
     title_search: params.titleSearch,
     publisher: params.publisher,
+    has_images: params.hasImage,
   });
   return request<ListSeriesResponse>(`/v1/series${query}`);
 }

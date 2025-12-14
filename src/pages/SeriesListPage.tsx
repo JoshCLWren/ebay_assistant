@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { API_BASE_URL, listSeries, type Series } from '../api';
 import { PageLayout } from '../components/PageLayout';
 import { LoadingState } from '../components/LoadingState';
@@ -8,6 +8,7 @@ import { EmptyState } from '../components/EmptyState';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 
 export function SeriesListPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [series, setSeries] = useState<Series[]>([]);
   const [nextToken, setNextToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -19,6 +20,21 @@ export function SeriesListPage() {
   const [inlineMessage, setInlineMessage] = useState<string | null>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
 
+  // Derived state from URL
+  const hasImage = searchParams.get('has_images') === 'true' ? true : searchParams.get('has_images') === 'false' ? false : null;
+
+  const updateHasImage = (value: boolean | null) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value === null) {
+        next.delete('has_images');
+      } else {
+        next.set('has_images', String(value));
+      }
+      return next;
+    }, { replace: true });
+  };
+
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
@@ -26,7 +42,7 @@ export function SeriesListPage() {
       setError(null);
       setInlineMessage(null);
       try {
-        const response = await listSeries({ pageSize: 50, titleSearch: debouncedSearch });
+        const response = await listSeries({ pageSize: 50, titleSearch: debouncedSearch, hasImage });
         if (!cancelled) {
           setSeries(response.series);
           setNextToken(response.next_page_token ?? null);
@@ -45,13 +61,13 @@ export function SeriesListPage() {
     return () => {
       cancelled = true;
     };
-  }, [debouncedSearch, refreshTick]);
+  }, [debouncedSearch, refreshTick, hasImage]);
 
   const handleLoadMore = useCallback(async () => {
     if (!nextToken) return;
     setLoadingMore(true);
     try {
-      const response = await listSeries({ pageSize: 50, pageToken: nextToken, titleSearch: debouncedSearch });
+      const response = await listSeries({ pageSize: 50, pageToken: nextToken, titleSearch: debouncedSearch, hasImage });
       setSeries((prev) => [...prev, ...response.series]);
       setNextToken(response.next_page_token ?? null);
       setInlineMessage(null);
@@ -64,7 +80,7 @@ export function SeriesListPage() {
     } finally {
       setLoadingMore(false);
     }
-  }, [nextToken, debouncedSearch, series.length]);
+  }, [nextToken, debouncedSearch, series.length, hasImage]);
 
   useEffect(() => {
     const observerTarget = loadMoreSentinelRef.current;
@@ -160,6 +176,38 @@ export function SeriesListPage() {
           onChange={(event) => setSearch(event.target.value)}
           className="mt-2 w-full rounded-2xl border border-ink-700 bg-ink-900 px-4 py-3 text-base text-white shadow-card placeholder:text-slate-500 focus:border-ink-400 focus:outline-none"
         />
+        <div className="mt-4 flex flex-wrap gap-2 text-sm font-medium">
+          <button
+            type="button"
+            onClick={() => updateHasImage(null)}
+            className={`rounded-full px-4 py-2 transition-colors ${hasImage === null
+              ? 'bg-ink-100 text-ink-900'
+              : 'bg-ink-800 text-slate-400 hover:bg-ink-700 hover:text-slate-200'
+              }`}
+          >
+            All Series
+          </button>
+          <button
+            type="button"
+            onClick={() => updateHasImage(true)}
+            className={`rounded-full px-4 py-2 transition-colors ${hasImage === true
+              ? 'bg-primary-500 text-white' // Using a distinct color for "active" positive filter
+              : 'bg-ink-800 text-slate-400 hover:bg-ink-700 hover:text-slate-200'
+              }`}
+          >
+            With Images
+          </button>
+          <button
+            type="button"
+            onClick={() => updateHasImage(false)}
+            className={`rounded-full px-4 py-2 transition-colors ${hasImage === false
+              ? 'bg-rose-500 text-white' // "Negative" filter could be rose or similar
+              : 'bg-ink-800 text-slate-400 hover:bg-ink-700 hover:text-slate-200'
+              }`}
+          >
+            No Images
+          </button>
+        </div>
       </div>
       {content}
     </PageLayout>
