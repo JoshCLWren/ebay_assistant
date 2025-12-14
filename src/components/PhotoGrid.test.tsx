@@ -56,4 +56,22 @@ describe('PhotoGrid', () => {
 
     expect(onDelete).toHaveBeenCalledWith(images[0]);
   });
+
+  it('sorts images by type priority', () => {
+    const images = [
+      mockImage({ image_type: 'misc', relative_path: '/media/misc.jpg' }),
+      mockImage({ image_type: 'front', relative_path: '/media/front.jpg' }),
+      mockImage({ image_type: 'back', relative_path: '/media/back.jpg' }),
+      mockImage({ image_type: 'spine', relative_path: '/media/spine.jpg' }),
+    ];
+
+    render(<PhotoGrid images={images} />);
+
+    const imgElements = screen.getAllByRole('img');
+    const altTexts = imgElements.map((img) => img.getAttribute('alt'));
+
+    // Expect front (01) -> back (02) -> spine (03) -> misc (07)
+    // Note: The img element inside the modal is not rendered initially, only the thumbs.
+    expect(altTexts).toEqual(['front', 'back', 'spine', 'misc']);
+  });
 });
