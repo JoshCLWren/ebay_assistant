@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getIssue, listCopyImages, listCopies, type Copy, type Issue } from '../api';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
@@ -22,8 +22,9 @@ export function IssueDetailPage() {
   const [refreshTick, setRefreshTick] = useState(0);
   const fetchedCopyRef = useRef<Set<number>>(new Set());
   const [inlineMessage, setInlineMessage] = useState<string | null>(null);
-  const [autoNavigated, setAutoNavigated] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
 
   useEffect(() => {
     let cancelled = false;
@@ -82,16 +83,19 @@ export function IssueDetailPage() {
     };
   }, [copies, issueId, seriesId]);
 
+
   useEffect(() => {
-    if (autoNavigated || loading || error || copies.length !== 1) {
+    if (loading || error || copies.length !== 1) {
+      return;
+    }
+
+    if (location.state?.preventAutoRedirect) {
       return;
     }
     const [onlyCopy] = copies;
     if (!onlyCopy) return;
     navigate(`/series/${seriesId}/issues/${issueId}/copies/${onlyCopy.copy_id}`, { replace: true });
-    setAutoNavigated(true);
-  }, [autoNavigated, copies, error, issueId, loading, navigate, seriesId]);
-
+  }, [copies, error, issueId, loading, navigate, seriesId, location.state]);
   const loadMoreCopies = async () => {
     if (!copyToken) return;
     try {

@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link, type To } from 'react-router-dom';
 
 interface PageLayoutProps {
   title: string;
   titleClassName?: string;
   subtitle?: ReactNode;
-  backTo?: number | string;
+  backTo?: number | string | To;
+  backState?: unknown;
   homeTo?: string;
   rightSlot?: ReactNode;
   children: ReactNode;
@@ -16,6 +17,7 @@ export function PageLayout({
   titleClassName,
   subtitle,
   backTo,
+  backState,
   homeTo,
   rightSlot,
   children,
@@ -30,22 +32,27 @@ export function PageLayout({
       <header className="sticky top-0 z-20 border-b border-ink-800/40 bg-ink-900/60 backdrop-blur-xl supports-[backdrop-filter]:bg-ink-900/40">
         <div className="mx-auto flex items-center gap-4 px-4 py-4 pt-safe max-w-lg">
           {showBack ? (
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof backTo === 'number') {
-                  navigate(backTo);
-                } else if (typeof backTo === 'string') {
-                  navigate(backTo, { replace: true });
-                } else {
-                  navigate(-1);
-                }
-              }}
-              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 text-xl font-bold text-white transition-all active:scale-95 hover:bg-white/10"
-              aria-label="Go back"
-            >
-              ←
-            </button>
+            typeof backTo === 'number' ? (
+              <button
+                type="button"
+                onClick={() => navigate(backTo)}
+                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 text-xl font-bold text-white transition-all active:scale-95 hover:bg-white/10"
+                aria-label="Go back"
+              >
+                ←
+              </button>
+            ) : (
+
+              <Link
+                to={backTo}
+                state={backState}
+                replace
+                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 text-xl font-bold text-white transition-all active:scale-95 hover:bg-white/10"
+                aria-label="Go back"
+              >
+                ←
+              </Link>
+            )
           ) : null}
           {showHome ? (
             <button

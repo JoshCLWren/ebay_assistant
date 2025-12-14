@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import {
   deleteCopyImage,
   getCopy,
+  listCopies,
   listCopyImages,
   updateCopy,
   uploadCopyImagesWithPolling,
@@ -57,6 +58,7 @@ export function CopyDetailPage() {
   const [guidedCaptureActive, setGuidedCaptureActive] = useState(false);
   const [guidedCaptureIndex, setGuidedCaptureIndex] = useState(0);
   const [activeUploads, setActiveUploads] = useState(0);
+  const [isSingleCopy, setIsSingleCopy] = useState(false);
   const getImageTypeLabel = useCallback(
     (type: ImageType) => IMAGE_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? 'Photo',
     [],
@@ -78,13 +80,15 @@ export function CopyDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        const [copyResponse, imagesResponse] = await Promise.all([
+        const [copyResponse, imagesResponse, copiesListResponse] = await Promise.all([
           getCopy(issueId, copyId),
           listCopyImages(seriesId, issueId, copyId),
+          listCopies(issueId, { pageSize: 2 }),
         ]);
         if (cancelled) return;
         setCopy(copyResponse);
         setImages(imagesResponse.images);
+        setIsSingleCopy(copiesListResponse.copies.length === 1);
         setNotes(copyResponse.grader_notes ?? '');
       } catch (err) {
         if (!cancelled) {
@@ -326,9 +330,8 @@ export function CopyDetailPage() {
                 onClick={handleCaptureClick}
                 className="flex flex-1 items-center justify-center rounded-2xl border-2 border-dashed border-white/40 px-4 py-3 text-center text-sm font-semibold text-white"
               >
-                {`Capture ${getImageTypeLabel(currentImageType)}${
-                  activeUploads ? ` · ${activeUploads} uploading` : ''
-                }`}
+                {`Capture ${getImageTypeLabel(currentImageType)}${activeUploads ? ` · ${activeUploads} uploading` : ''
+                  }`}
               </button>
               <input
                 id="photo-upload"
@@ -382,13 +385,12 @@ export function CopyDetailPage() {
                   key={option.value}
                   type="button"
                   onClick={() => setCurrentImageType(option.value)}
-                  className={`rounded-2xl border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ${
-                    count
-                      ? 'border-emerald-400/30 bg-emerald-900/30 text-emerald-200'
-                      : isActive
-                        ? 'border-white/70 bg-white/5 text-white'
-                        : 'border-ink-800 bg-slate-950 text-slate-300'
-                  }`}
+                  className={`rounded-2xl border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ${count
+                    ? 'border-emerald-400/30 bg-emerald-900/30 text-emerald-200'
+                    : isActive
+                      ? 'border-white/70 bg-white/5 text-white'
+                      : 'border-ink-800 bg-slate-950 text-slate-300'
+                    }`}
                 >
                   <span className="block">{option.label}</span>
                   <span className="text-[10px] font-normal tracking-normal text-slate-400">
@@ -441,7 +443,16 @@ export function CopyDetailPage() {
     <PageLayout
       title={pageTitle}
       subtitle={pageSubtitle}
-      backTo={`/series/${seriesId}/issues/${issueId}`}
+      backTo={
+        isSingleCopy
+          ? `/series/${seriesId}`
+          : `/series/${seriesId}/issues/${issueId}`
+      }
+      backState={
+        isSingleCopy
+          ? undefined
+          : { preventAutoRedirect: true }
+      }
       homeTo="/"
       rightSlot={<SeriesSearchToolbar />}
     >
