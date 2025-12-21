@@ -666,13 +666,19 @@ export function CopyDetailPage() {
           </div>
 
           {showGenerateForm && (
-            <div className="mt-4 rounded-2xl bg-slate-950 p-4">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Generate New Description</p>
-              <div className="flex gap-2">
+            <div className="mt-4 overflow-hidden rounded-2xl border border-ink-800 bg-slate-950 p-4 shadow-2xl">
+              <div className="mb-4 flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary-500/10 text-primary-400">
+                  <SparklesIcon className="h-4 w-4" />
+                </div>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Generate New Description</p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <select
                   value={selectedModelId}
                   onChange={(e) => setSelectedModelId(e.target.value)}
-                  className="flex-1 rounded-xl border border-ink-800 bg-ink-900 px-3 py-2 text-sm text-white focus:border-ink-400 focus:outline-none"
+                  className="flex-1 rounded-xl border border-ink-800 bg-ink-900 px-3 py-2.5 text-sm text-white focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 >
                   <option value="" disabled>Select a model</option>
                   {models.map(m => (
@@ -683,32 +689,51 @@ export function CopyDetailPage() {
                   type="button"
                   onClick={handleGenerate}
                   disabled={isGenerating || !selectedModelId || isEstimating}
-                  className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-900/20 hover:bg-primary-500 disabled:opacity-50"
+                  className="group relative flex items-center justify-center gap-2 overflow-hidden rounded-xl bg-primary-600 px-6 py-2.5 text-sm font-bold text-white transition-all hover:bg-primary-500 hover:shadow-lg hover:shadow-primary-900/40 disabled:opacity-50"
                 >
-                  {isGenerating ? 'Generating...' : 'Generate'}
+                  <div className="absolute inset-0 translate-x-[-100%] bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-500 group-hover:translate-x-[100%]" />
+                  {isGenerating ? (
+                    <>
+                      <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <SparklesIcon className="h-4 w-4" />
+                      <span>Generate</span>
+                    </>
+                  )}
                 </button>
               </div>
 
               {/* Estimate Display */}
               {(isEstimating || estimate) && (
-                <div className="mt-3 flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-3 py-2 text-[11px]">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    {isEstimating ? (
-                      <span className="flex items-center gap-1.5">
-                        <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary-400" />
-                        Calculating cost...
-                      </span>
-                    ) : (
-                      <>
-                        <span className="font-medium text-slate-300">
-                          Tokens: {estimate?.estimated_prompt_tokens}p / {estimate?.estimated_completion_tokens}c
+                <div className="mt-4 overflow-hidden rounded-xl border border-white/5 bg-ink-900/50 p-3 shadow-inner">
+                  <div className="flex flex-wrap items-center justify-between gap-y-2 text-[11px]">
+                    <div className="flex items-center gap-3">
+                      {isEstimating ? (
+                        <span className="flex items-center gap-2 font-medium text-slate-400">
+                          <div className="h-2 w-2 animate-bounce rounded-full bg-primary-500" />
+                          Analyzing contents...
                         </span>
-                        <span className="text-white/10">|</span>
-                        <span className="font-medium text-emerald-400">
-                          Est. Cost: ${estimate?.estimated_cost_usd?.toFixed(4)}
-                        </span>
-                      </>
-                    )}
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <div className="flex flex-col">
+                            <span className="text-[9px] uppercase tracking-wider text-slate-500">Resource Usage</span>
+                            <span className="font-semibold text-slate-300">
+                              {estimate?.estimated_prompt_tokens} prompt / {estimate?.estimated_completion_tokens} completion
+                            </span>
+                          </div>
+                          <div className="h-6 w-px bg-white/5" />
+                          <div className="flex flex-col">
+                            <span className="text-[9px] uppercase tracking-wider text-slate-500">Projected Cost</span>
+                            <span className="font-bold text-emerald-400">
+                              ${estimate?.estimated_cost_usd?.toFixed(4)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
