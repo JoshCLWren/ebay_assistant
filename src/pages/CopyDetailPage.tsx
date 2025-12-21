@@ -1,21 +1,30 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   deleteCopyImage,
   getCopy,
   listCopies,
   listCopyImages,
+  listEbayDescriptions,
+  listEbayModels,
+  createEbayDescription,
+  updateEbayDescription,
   updateCopy,
   uploadCopyImagesWithPolling,
+  estimateEbayDescriptionCost,
   type ComicImage,
   type Copy,
+  type EbayDescription,
+  type EbayModel,
   type ImageType,
+  type CostEstimateResponse,
 } from '../api';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
 import { PhotoGrid } from '../components/PhotoGrid';
 import { PageLayout } from '../components/PageLayout';
 import { SeriesSearchToolbar } from '../components/SeriesSearchToolbar';
+import { ClipboardDocumentIcon, PencilSquareIcon, SparklesIcon, CheckIcon } from '@heroicons/react/24/outline';
 
 const IMAGE_TYPE_OPTIONS: { label: string; value: ImageType }[] = [
   { label: 'Front Cover', value: 'front' },
@@ -44,6 +53,8 @@ export function CopyDetailPage() {
 
   const [copy, setCopy] = useState<Copy | null>(null);
   const [images, setImages] = useState<ComicImage[]>([]);
+  const [descriptions, setDescriptions] = useState<EbayDescription[]>([]);
+  const [models, setModels] = useState<EbayModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
@@ -59,6 +70,25 @@ export function CopyDetailPage() {
   const [guidedCaptureIndex, setGuidedCaptureIndex] = useState(0);
   const [activeUploads, setActiveUploads] = useState(0);
   const [isSingleCopy, setIsSingleCopy] = useState(false);
+
+  // Enhancement States
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedModelId, setSelectedModelId] = useState<string>('');
+  const [showGenerateForm, setShowGenerateForm] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [estimate, setEstimate] = useState<CostEstimateResponse | null>(null);
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [confirmingRegenId, setConfirmingRegenId] = useState<number | null>(null);
+  const [recentlyRegeneratedId, setRecentlyRegeneratedId] = useState<number | null>(null);
+  const [descMessage, setDescMessage] = useState<string | null>(null);
+
+  const toggleExpand = (id: number) => {
+    if (isEditing) return; // Prevent collapse while editing
+    setExpandedId(expandedId === id ? null : id);
+  };
+
   const getImageTypeLabel = useCallback(
     (type: ImageType) => IMAGE_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? 'Photo',
     [],
@@ -74,22 +104,46 @@ export function CopyDetailPage() {
     }
   }, [seriesId, issueId, copyId]);
 
+  const refreshDescriptions = useCallback(async () => {
+    try {
+      const response = await listEbayDescriptions({ seriesId, pageSize: 100 });
+      const matching = response.descriptions.filter((d: EbayDescription) => d.issue_id === issueId);
+      setDescriptions(matching);
+      // Auto-expand the first one if none expanded and we have some
+      if (matching.length > 0 && expandedId === null) {
+        setExpandedId(matching[0].id);
+      }
+    } catch (err) {
+      console.error('Failed to refresh descriptions', err);
+    }
+  }, [seriesId, issueId, expandedId]);
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const [copyResponse, imagesResponse, copiesListResponse] = await Promise.all([
+        const [copyResponse, imagesResponse, copiesListResponse, descriptionsResponse, modelsResponse] = await Promise.all([
           getCopy(issueId, copyId),
           listCopyImages(seriesId, issueId, copyId),
           listCopies(issueId, { pageSize: 2 }),
+          listEbayDescriptions({ seriesId, pageSize: 100 }),
+          listEbayModels(),
         ]);
         if (cancelled) return;
         setCopy(copyResponse);
         setImages(imagesResponse.images);
         setIsSingleCopy(copiesListResponse.copies.length === 1);
         setNotes(copyResponse.grader_notes ?? '');
+
+        const matchingDescriptions = descriptionsResponse.descriptions.filter((d: EbayDescription) => d.issue_id === issueId);
+        setDescriptions(matchingDescriptions);
+        setModels(modelsResponse.models);
+        if (modelsResponse.models.length > 0) {
+          setSelectedModelId(modelsResponse.models[0].id);
+        }
+
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Unable to load copy');
@@ -244,6 +298,163 @@ export function CopyDetailPage() {
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleCopyDescription = async () => {
+    const desc = descriptions.find(d => d.id === expandedId);
+    if (!desc) return;
+    try {
+      await navigator.clipboard.writeText(desc.description);
+      setUploadMessage('Description copied to clipboard');
+      setTimeout(() => setUploadMessage(null), 3000);
+    } catch (err) {
+      setUploadMessage('Failed to copy');
+    }
+  };
+
+  const startEditing = () => {
+    const desc = descriptions.find(d => d.id === expandedId);
+    if (!desc) return;
+    setEditContent(desc.description);
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditContent('');
+  };
+
+  const saveDescription = async () => {
+    const desc = descriptions.find((d) => d.id === expandedId);
+    if (!desc) return;
+    setDescMessage('Saving description…');
+    try {
+      await updateEbayDescription(desc.id, { description: editContent });
+      await refreshDescriptions();
+      setIsEditing(false);
+      setDescMessage('Description updated');
+      setRecentlyRegeneratedId(desc.id);
+      setTimeout(() => {
+        setRecentlyRegeneratedId(null);
+        setDescMessage(null);
+      }, 4000);
+    } catch (err) {
+      setDescMessage(err instanceof Error ? err.message : 'Save failed');
+      setTimeout(() => setDescMessage(null), 5000);
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const fetchEstimate = useCallback(async (modelId: string) => {
+    if (!modelId) return;
+    setIsEstimating(true);
+    try {
+      const resp = await estimateEbayDescriptionCost({
+        issue_id: issueId,
+        copy_id: copyId,
+        model: modelId,
+      });
+      setEstimate(resp);
+    } catch (err) {
+      console.error('Failed to fetch cost estimate', err);
+    } finally {
+      setIsEstimating(false);
+    }
+  }, [issueId, copyId]);
+
+  useEffect(() => {
+    if (showGenerateForm && selectedModelId) {
+      fetchEstimate(selectedModelId);
+    } else if (!showGenerateForm) {
+      setEstimate(null);
+    }
+  }, [showGenerateForm, selectedModelId, fetchEstimate]);
+
+  const handleGenerate = async () => {
+    if (!selectedModelId) return;
+    setIsGenerating(true);
+    setDescMessage('Generating description…');
+    try {
+      const resp = await createEbayDescription({
+        issue_id: issueId,
+        model: selectedModelId,
+        estimate_id: estimate?.estimate_id,
+      });
+      await refreshDescriptions();
+      setDescMessage('Description generated');
+      setRecentlyRegeneratedId(resp.id);
+      setShowGenerateForm(false);
+      setEstimate(null);
+      setTimeout(() => {
+        setRecentlyRegeneratedId(null);
+        setDescMessage(null);
+      }, 4000);
+    } catch (err) {
+      setDescMessage(err instanceof Error ? err.message : 'Generation failed');
+      setTimeout(() => setDescMessage(null), 5000);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleRegenerate = async (descId: number) => {
+    const desc = descriptions.find((d) => d.id === descId);
+    if (!desc) {
+      console.error('[Regen] No description found for id:', descId);
+      return;
+    }
+
+    try {
+      setIsGenerating(true);
+      setUploadMessage('Regenerating description…');
+      console.log('[Regen] Sending update request for:', desc.id);
+      await updateEbayDescription(desc.id, {
+        regenerate: true,
+      });
+      await refreshDescriptions();
+      setRecentlyRegeneratedId(desc.id);
+      setDescMessage('Description regenerated');
+      console.log('[Regen] Success');
+      setTimeout(() => {
+        setRecentlyRegeneratedId(null);
+        setDescMessage(null);
+      }, 4000);
+    } catch (err) {
+      console.error('[Regen] Fatal error:', err);
+      const msg = err instanceof Error ? err.message : 'Regeneration failed';
+      setDescMessage(msg);
+      setTimeout(() => setDescMessage(null), 5000);
+    } finally {
+      setIsGenerating(false);
+      setEstimate(null);
+      setConfirmingRegenId(null);
+    }
+  };
+
+  const prepareRegen = async (desc: EbayDescription) => {
+    if (confirmingRegenId === desc.id) {
+      handleRegenerate(desc.id);
+      return;
+    }
+
+    try {
+      setIsEstimating(true);
+      console.log('[Regen] Fetching estimate for model:', desc.model);
+      const currentEstimate = await estimateEbayDescriptionCost({
+        issue_id: issueId,
+        copy_id: copyId,
+        model: desc.model,
+      });
+      setEstimate(currentEstimate);
+      setConfirmingRegenId(desc.id);
+      console.log('[Regen] Estimate received. Ready to confirm.');
+    } catch (err) {
+      console.error('[Regen] Failed to fetch estimate:', err);
+      setUploadMessage('Unable to fetch cost estimate. Please try again.');
+    } finally {
+      setIsEstimating(false);
     }
   };
 
@@ -431,6 +642,230 @@ export function CopyDetailPage() {
           >
             {notesSaving ? 'Saving…' : 'Save notes'}
           </button>
+        </section>
+
+        {/* Enhanced eBay Descriptions Section (Accordion List View) */}
+        <section className="rounded-3xl bg-ink-900 p-4 shadow-card">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-white">eBay Descriptions</h2>
+            <div className="flex items-center gap-3">
+              {descMessage && (
+                <span className="animate-fade-in text-xs font-medium text-emerald-400">
+                  {descMessage}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowGenerateForm(!showGenerateForm)}
+                className="flex items-center gap-1.5 rounded-full bg-ink-800 px-3 py-1.5 text-xs font-semibold text-primary-400 transition-colors hover:bg-ink-700 hover:text-primary-300"
+              >
+                <SparklesIcon className="h-3 w-3" />
+                New
+              </button>
+            </div>
+          </div>
+
+          {showGenerateForm && (
+            <div className="mt-4 rounded-2xl bg-slate-950 p-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Generate New Description</p>
+              <div className="flex gap-2">
+                <select
+                  value={selectedModelId}
+                  onChange={(e) => setSelectedModelId(e.target.value)}
+                  className="flex-1 rounded-xl border border-ink-800 bg-ink-900 px-3 py-2 text-sm text-white focus:border-ink-400 focus:outline-none"
+                >
+                  <option value="" disabled>Select a model</option>
+                  {models.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={isGenerating || !selectedModelId || isEstimating}
+                  className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-900/20 hover:bg-primary-500 disabled:opacity-50"
+                >
+                  {isGenerating ? 'Generating...' : 'Generate'}
+                </button>
+              </div>
+
+              {/* Estimate Display */}
+              {(isEstimating || estimate) && (
+                <div className="mt-3 flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-3 py-2 text-[11px]">
+                  <div className="flex items-center gap-2 text-slate-400">
+                    {isEstimating ? (
+                      <span className="flex items-center gap-1.5">
+                        <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary-400" />
+                        Calculating cost...
+                      </span>
+                    ) : (
+                      <>
+                        <span className="font-medium text-slate-300">
+                          Tokens: {estimate?.estimated_prompt_tokens}p / {estimate?.estimated_completion_tokens}c
+                        </span>
+                        <span className="text-white/10">|</span>
+                        <span className="font-medium text-emerald-400">
+                          Est. Cost: ${estimate?.estimated_cost_usd?.toFixed(4)}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="mt-4 space-y-3">
+            {descriptions.length > 0 ? (
+              descriptions.map((desc) => {
+                const isExpanded = expandedId === desc.id;
+                const isRecent = recentlyRegeneratedId === desc.id;
+                const descText = desc.description || '';
+                const firstLine = (descText.split('\n')[0] || '').substring(0, 100);
+                const charCount = descText.length;
+
+                return (
+                  <div
+                    key={desc.id}
+                    className={`overflow-hidden rounded-2xl border transition-all duration-500 ${isRecent
+                      ? 'animate-success-pulse ring-2 ring-emerald-500/20'
+                      : 'border-ink-800 bg-slate-950'
+                      }`}
+                  >
+                    {/* Header/Preview */}
+                    <button
+                      type="button"
+                      onClick={() => toggleExpand(desc.id)}
+                      className={`flex w-full flex-col p-4 text-left transition-colors hover:bg-white/5 ${isExpanded ? 'bg-white/5' : ''}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {isRecent && <CheckIcon className="h-3 w-3 text-emerald-400 animate-bounce" />}
+                          <span className="rounded-lg bg-ink-800 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-300">
+                            {desc.model}
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            {new Date(desc.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-medium text-slate-500">{charCount} chars</span>
+                      </div>
+                      {!isExpanded && (
+                        <p className="mt-2 truncate text-sm text-slate-400">{firstLine}...</p>
+                      )}
+                    </button>
+
+                    {/* Expanded Content */}
+                    {isExpanded && (
+                      <div className="border-t border-ink-800 p-4 pt-2">
+                        <div className="mb-3 flex justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={handleCopyDescription}
+                            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-slate-400 hover:bg-ink-800 hover:text-white"
+                            title="Copy to clipboard"
+                          >
+                            <ClipboardDocumentIcon className="h-3.5 w-3.5" />
+                            Copy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={startEditing}
+                            disabled={isEditing}
+                            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-slate-400 hover:bg-ink-800 hover:text-white disabled:opacity-50"
+                            title="Edit description"
+                          >
+                            <PencilSquareIcon className="h-3.5 w-3.5" />
+                            Edit
+                          </button>
+                          <div className="flex items-center gap-1.5">
+                            {confirmingRegenId === desc.id ? (
+                              <div className="flex items-center gap-2 rounded-lg bg-emerald-900/30 px-2 py-1">
+                                <span className="text-[10px] font-medium text-emerald-300">
+                                  Confirm? {estimate ? `(Est: $${Number(estimate.estimated_cost_usd).toFixed(4)})` : ''}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRegenerate(desc.id)}
+                                  disabled={isGenerating}
+                                  className="text-xs font-bold text-emerald-400 hover:text-emerald-200"
+                                >
+                                  YES
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setConfirmingRegenId(null);
+                                    setEstimate(null);
+                                  }}
+                                  className="text-xs font-bold text-slate-400 hover:text-slate-200"
+                                >
+                                  NO
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => prepareRegen(desc)}
+                                disabled={isGenerating || isEstimating || isEditing}
+                                className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-slate-400 hover:bg-ink-800 hover:text-white disabled:opacity-50"
+                                title="Regenerate with same model"
+                              >
+                                {isEstimating && expandedId === desc.id ? (
+                                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-400 border-t-transparent" />
+                                ) : (
+                                  <SparklesIcon className="h-3.5 w-3.5" />
+                                )}
+                                Regen
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {isEditing ? (
+                          <div className="space-y-3">
+                            <textarea
+                              value={editContent}
+                              onChange={(e) => setEditContent(e.target.value)}
+                              className="min-h-[200px] w-full rounded-2xl border border-ink-800 bg-ink-900 p-4 font-mono text-sm leading-relaxed text-slate-300 focus:border-ink-400 focus:outline-none"
+                            />
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={cancelEditing}
+                                className="rounded-full px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={saveDescription}
+                                className="rounded-full bg-ink-800 px-4 py-2 text-xs font-semibold text-white hover:bg-ink-700"
+                              >
+                                Save Changes
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="rounded-2xl bg-ink-900 p-4 font-mono text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">
+                            {desc.description}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              !showGenerateForm && (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-ink-800 py-8 text-center bg-white/5">
+                  <SparklesIcon className="mb-2 h-6 w-6 text-slate-600" />
+                  <p className="text-sm font-medium text-slate-400">No descriptions yet</p>
+                  <p className="text-xs text-slate-600">Generate one using AI to get started</p>
+                </div>
+              )
+            )}
+          </div>
         </section>
       </div>
     );

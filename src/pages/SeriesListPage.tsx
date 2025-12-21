@@ -165,7 +165,10 @@ export function SeriesListPage() {
   }
 
   return (
-    <PageLayout title="Library" subtitle="Browse series pulled from CLZ">
+    <PageLayout
+      title="Library"
+      subtitle="Browse series pulled from CLZ"
+    >
       <div className="mb-4">
         <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Search</label>
         <input

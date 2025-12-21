@@ -4,6 +4,7 @@ import { SeriesDetailPage } from './pages/SeriesDetailPage';
 import { IssueDetailPage } from './pages/IssueDetailPage';
 import { CopyDetailPage } from './pages/CopyDetailPage';
 
+
 function App() {
   return (
     <BrowserRouter>

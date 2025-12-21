@@ -121,6 +121,26 @@ export interface ImageUploadJob {
   result?: Nullable<ComicImage>;
 }
 
+export interface EbayDescription {
+  id: number;
+  issue_id: number;
+  series_id: number;
+  series_title?: Nullable<string>;
+  publisher?: Nullable<string>;
+  issue_nr?: Nullable<string>;
+  variant?: Nullable<string>;
+  issue_title?: Nullable<string>;
+  cover_date?: Nullable<string>;
+  model: string;
+  description: string;
+  created_at: string;
+}
+
+export interface ListEbayDescriptionsResponse {
+  descriptions: EbayDescription[];
+  next_page_token?: Nullable<string>;
+}
+
 export interface ApiError extends Error {
   status: number;
 }
@@ -152,7 +172,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     try {
       const body = await response.json();
       if (body?.detail) {
-        error.message = body.detail;
+        if (typeof body.detail === 'string') {
+          error.message = body.detail;
+        } else {
+          error.message = JSON.stringify(body.detail);
+        }
       }
     } catch {
       // no-op
@@ -398,4 +422,133 @@ async function pollJob(jobId: string, signal?: AbortSignal) {
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function listEbayDescriptions(
+  params: {
+    pageSize?: number;
+    pageToken?: string | null;
+    seriesId?: number | null;
+    publisher?: string | null;
+    model?: string | null;
+    createdAfter?: string | null;
+    createdBefore?: string | null;
+  } = {},
+) {
+  const query = toQuery({
+    page_size: params.pageSize,
+    page_token: params.pageToken,
+    series_id: params.seriesId,
+    publisher: params.publisher,
+    model: params.model,
+    created_after: params.createdAfter,
+    created_before: params.createdBefore,
+  });
+  return request<ListEbayDescriptionsResponse>(`/v1/ebay-descriptions${query}`);
+}
+
+export interface EbayModel {
+  id: string;
+  name: string;
+  provider: string;
+  context_length: number;
+  description: string;
+  pricing?: {
+    prompt: number;
+    completion: number;
+  } | null;
+}
+
+export interface ListEbayModelsResponse {
+  models: EbayModel[];
+  cached: boolean;
+  cache_expires_at?: string | null;
+}
+
+export interface CreateEbayDescriptionRequest {
+  issue_id: number;
+  estimate_id?: number | null;
+  model?: string;
+  provider?: string;
+}
+
+export interface CreateEbayDescriptionResponse {
+  id: number;
+  issue_id: number;
+  model: string;
+  provider: string;
+  description: string;
+  created_at: string;
+}
+
+export interface UpdateEbayDescriptionRequest {
+  description?: string | null;
+  regenerate?: boolean;
+  model?: string;
+  provider?: string;
+}
+
+export interface UpdateEbayDescriptionResponse {
+  id: number;
+  issue_id: number;
+  model: string;
+  provider: string;
+  description: string;
+  created_at: string;
+  regenerated: boolean;
+}
+
+export function listEbayModels(forceRefresh = false) {
+  const query = forceRefresh ? '?force_refresh=true' : '';
+  return request<ListEbayModelsResponse>(`/v1/ebay-descriptions/models${query}`);
+}
+
+export function createEbayDescription(data: CreateEbayDescriptionRequest) {
+  return request<CreateEbayDescriptionResponse>('/v1/ebay-descriptions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateEbayDescription(id: number, data: UpdateEbayDescriptionRequest) {
+  return request<UpdateEbayDescriptionResponse>(`/v1/ebay-descriptions/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+}
+export interface CostEstimateRequest {
+  issue_id: number;
+  copy_id?: number | null;
+  model?: string | null;
+  provider?: string | null;
+  heuristic_version?: string | null;
+}
+
+export interface CostEstimateResponse {
+  estimate_id: number;
+  issue_id: number;
+  model: string;
+  provider: string;
+  heuristic_version: string;
+  estimated_prompt_tokens: number;
+  estimated_completion_tokens: number;
+  estimated_cost_usd: number | null;
+  pricing_available: boolean;
+  created_at: string;
+}
+
+export function estimateEbayDescriptionCost(data: CostEstimateRequest) {
+  return request<CostEstimateResponse>('/v1/ebay-descriptions/cost-estimate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
 }
