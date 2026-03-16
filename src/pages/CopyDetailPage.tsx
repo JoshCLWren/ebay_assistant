@@ -3,17 +3,20 @@ import { useParams } from 'react-router-dom';
 import {
   deleteCopyImage,
   getCopy,
+  getSeries,
+  getIssue,
   listCopies,
   listCopyImages,
   listEbayDescriptions,
   listEbayModels,
   createEbayDescription,
   updateEbayDescription,
-  updateCopy,
   uploadCopyImagesWithPolling,
   estimateEbayDescriptionCost,
   type ComicImage,
   type Copy,
+  type Series,
+  type Issue,
   type EbayDescription,
   type EbayModel,
   type ImageType,
@@ -52,14 +55,13 @@ export function CopyDetailPage() {
   const copyId = Number(copyParam);
 
   const [copy, setCopy] = useState<Copy | null>(null);
+  const [series, setSeries] = useState<Series | null>(null);
+  const [issue, setIssue] = useState<Issue | null>(null);
   const [images, setImages] = useState<ComicImage[]>([]);
   const [descriptions, setDescriptions] = useState<EbayDescription[]>([]);
   const [models, setModels] = useState<EbayModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notes, setNotes] = useState('');
-  const [notesSaving, setNotesSaving] = useState(false);
-  const [notesSavedAt, setNotesSavedAt] = useState<number | null>(null);
   const [currentImageType, setCurrentImageType] = useState<ImageType>(IMAGE_TYPE_OPTIONS[0].value);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -70,6 +72,7 @@ export function CopyDetailPage() {
   const [guidedCaptureIndex, setGuidedCaptureIndex] = useState(0);
   const [activeUploads, setActiveUploads] = useState(0);
   const [isSingleCopy, setIsSingleCopy] = useState(false);
+  const [isPhotosExpanded, setIsPhotosExpanded] = useState(false);
 
   // Enhancement States
   const [isEditing, setIsEditing] = useState(false);
@@ -124,8 +127,18 @@ export function CopyDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        const [copyResponse, imagesResponse, copiesListResponse, descriptionsResponse, modelsResponse] = await Promise.all([
+        const [
+          copyResponse,
+          seriesResponse,
+          issueResponse,
+          imagesResponse,
+          copiesListResponse,
+          descriptionsResponse,
+          modelsResponse
+        ] = await Promise.all([
           getCopy(issueId, copyId),
+          getSeries(seriesId),
+          getIssue(seriesId, issueId),
           listCopyImages(seriesId, issueId, copyId),
           listCopies(issueId, { pageSize: 2 }),
           listEbayDescriptions({ seriesId, pageSize: 100 }),
@@ -133,15 +146,21 @@ export function CopyDetailPage() {
         ]);
         if (cancelled) return;
         setCopy(copyResponse);
+        setSeries(seriesResponse);
+        setIssue(issueResponse);
         setImages(imagesResponse.images);
         setIsSingleCopy(copiesListResponse.copies.length === 1);
-        setNotes(copyResponse.grader_notes ?? '');
 
         const matchingDescriptions = descriptionsResponse.descriptions.filter((d: EbayDescription) => d.issue_id === issueId);
         setDescriptions(matchingDescriptions);
         setModels(modelsResponse.models);
         if (modelsResponse.models.length > 0) {
           setSelectedModelId(modelsResponse.models[0].id);
+        }
+
+        // Auto-expand photos if there are any
+        if (imagesResponse.images.length > 0) {
+          setIsPhotosExpanded(true);
         }
 
       } catch (err) {
@@ -237,26 +256,7 @@ export function CopyDetailPage() {
     fileInputRef.current?.click();
   };
 
-  const handleNotesSave = async () => {
-    if (!copy) return;
-    setNotesSaving(true);
-    setUploadMessage(null);
-    try {
-      const updated = await updateCopy(issueId, copyId, { grader_notes: notes || null });
-      setCopy(updated);
-      setNotes(updated.grader_notes ?? '');
-      setNotesSavedAt(Date.now());
-    } catch (err) {
-      setUploadMessage(err instanceof Error ? err.message : 'Unable to save notes');
-    } finally {
-      setNotesSaving(false);
-    }
-  };
 
-  const handleGuidedSkipOptional = () => {
-    if (!guidedStepIsOptional) return;
-    endGuidedCapture('Skipped optional misc photo');
-  };
 
   const handleGuidedCancel = () => {
     if (!guidedCaptureActive) return;
@@ -473,34 +473,25 @@ export function CopyDetailPage() {
     }
   };
 
-  const formatCurrency = (value?: number | null) => {
-    if (value === null || value === undefined) return '—';
-    return `$${value.toFixed(2)}`;
+
+
+  const formatRelativeTime = (isoString: string) => {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 10) return 'just now';
+    if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+
+    return date.toLocaleDateString();
   };
 
-  const metadata = useMemo(() => {
-    if (!copy) return null;
-    const rows = [
-      { label: 'Grade', value: copy.grade ?? 'Ungraded' },
-      { label: 'Raw/Slabbed', value: copy.raw_slabbed ?? copy.format ?? '—' },
-      { label: 'Asking Value', value: formatCurrency(copy.value) },
-      { label: 'My Value', value: formatCurrency(copy.my_value) },
-      { label: 'Purchase', value: formatCurrency(copy.purchase_price) },
-      { label: 'Store', value: copy.purchase_store ?? '—' },
-      { label: 'Location', value: copy.custom_label ?? '—' },
-      { label: 'Barcode', value: copy.barcode ?? '—' },
-    ];
-    return (
-      <dl className="grid grid-cols-2 gap-4 rounded-3xl bg-ink-900 p-4 shadow-card">
-        {rows.map((row) => (
-          <div key={row.label}>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">{row.label}</dt>
-            <dd className="mt-1 break-words text-base font-semibold text-white">{row.value}</dd>
-          </div>
-        ))}
-      </dl>
-    );
-  }, [copy]);
 
   let body: React.ReactNode;
   if (loading) {
@@ -512,137 +503,121 @@ export function CopyDetailPage() {
   } else {
     body = (
       <div className="space-y-6">
-        {metadata}
-        <section className="rounded-3xl bg-ink-900 p-4 shadow-card">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-white">Photos</h2>
-              <p className="text-sm text-slate-400">{images.length} uploaded</p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="rounded-2xl border border-ink-800 bg-slate-950 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Up next</p>
-                <p className="text-base font-semibold text-white">
-                  {getImageTypeLabel(currentImageType)}
-                </p>
-                <p className="text-xs text-slate-500">We&apos;ll cycle through each required angle automatically.</p>
-              </div>
-              <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-ink-800 bg-slate-950 px-3 py-2 text-xs font-semibold uppercase text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={replaceExisting}
-                  onChange={(event) => setReplaceExisting(event.target.checked)}
-                  className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-ink-400 focus:ring-ink-400"
-                />
-                Replace existing
-              </label>
-              <button
-                type="button"
-                onClick={handleCaptureClick}
-                className="flex flex-1 items-center justify-center rounded-2xl border-2 border-dashed border-white/40 px-4 py-3 text-center text-sm font-semibold text-white"
-              >
-                {`Capture ${getImageTypeLabel(currentImageType)}${activeUploads ? ` · ${activeUploads} uploading` : ''
-                  }`}
-              </button>
-              <input
-                id="photo-upload"
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-            </div>
-          </div>
-          {guidedCaptureActive && guidedCaptureStepType ? (
-            <div className="mt-4 rounded-2xl border border-ink-800 bg-slate-950 p-4">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-white">Guided capture in progress</p>
-                <button
-                  type="button"
-                  onClick={handleGuidedCancel}
-                  className="text-xs font-semibold uppercase tracking-wide text-rose-200"
-                >
-                  End walkthrough
-                </button>
-              </div>
-              <p className="mt-2 text-sm text-slate-200">
-                {guidedStepIsOptional ? 'Optional shot' : 'Next photo'}:{' '}
-                <span className="font-semibold text-white">{getImageTypeLabel(guidedCaptureStepType)}</span>
-              </p>
-              <p className="text-xs text-slate-400">
-                {guidedStepIsOptional
-                  ? 'Misc can be skipped. Tap Capture to grab it or skip to move on.'
-                  : 'Tap Capture to open the camera for this angle. We will prompt for the next one automatically.'}
-              </p>
-              {guidedStepIsOptional ? (
-                <button
-                  type="button"
-                  onClick={handleGuidedSkipOptional}
-                  className="mt-3 rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200"
-                >
-                  Skip misc for now
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {IMAGE_TYPE_OPTIONS.map((option) => {
-              const count = imageTypeCounts[option.value] ?? 0;
-              const isActive = option.value === currentImageType;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setCurrentImageType(option.value)}
-                  className={`rounded-2xl border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ${count
-                    ? 'border-emerald-400/30 bg-emerald-900/30 text-emerald-200'
-                    : isActive
-                      ? 'border-white/70 bg-white/5 text-white'
-                      : 'border-ink-800 bg-slate-950 text-slate-300'
-                    }`}
-                >
-                  <span className="block">{option.label}</span>
-                  <span className="text-[10px] font-normal tracking-normal text-slate-400">
-                    {count ? `${count} uploaded` : isActive ? 'Up next' : 'Queued'}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          {uploadMessage ? <p className="mt-3 text-xs text-slate-400">{uploadMessage}</p> : null}
-          <div className="mt-4">
-            <PhotoGrid
-              images={images}
-              onDelete={handleDeleteImage}
-              deletingFileName={deletingFileName}
-            />
-          </div>
-        </section>
-
-        <section className="rounded-3xl bg-ink-900 p-4 shadow-card">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-white">Notes</h2>
-            {notesSavedAt ? (
-              <span className="text-xs text-slate-400">Saved {new Date(notesSavedAt).toLocaleTimeString()}</span>
-            ) : null}
-          </div>
-          <textarea
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder="Capture defects, pressing notes, or location tips…"
-            className="mt-3 min-h-[120px] w-full rounded-2xl border border-ink-800 bg-slate-950 px-3 py-3 text-base text-white placeholder:text-slate-500 focus:border-ink-400 focus:outline-none"
-          />
+        <section className="rounded-3xl bg-ink-900 shadow-card">
           <button
             type="button"
-            onClick={handleNotesSave}
-            disabled={notesSaving}
-            className="mt-3 w-full rounded-full bg-ink-800 px-4 py-3 text-sm font-semibold text-white shadow-card disabled:opacity-60"
+            onClick={() => setIsPhotosExpanded(!isPhotosExpanded)}
+            className="flex w-full items-center justify-between p-4"
           >
-            {notesSaving ? 'Saving…' : 'Save notes'}
+            <div className="text-left">
+              <h2 className="text-base font-semibold text-white">Photos</h2>
+              <p className="text-sm text-slate-400">
+                {images.length} uploaded {isPhotosExpanded ? '' : '(Collapsed)'}
+              </p>
+            </div>
+            <div className={`text-slate-400 transition-transform duration-300 ${isPhotosExpanded ? 'rotate-180' : ''}`}>
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
           </button>
+
+          {isPhotosExpanded && (
+            <div className="p-4 pt-0 border-t border-ink-800/50">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="rounded-2xl border border-ink-800 bg-slate-950 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Up next</p>
+                    <p className="text-base font-semibold text-white">
+                      {getImageTypeLabel(currentImageType)}
+                    </p>
+                    <p className="text-xs text-slate-500">We&apos;ll cycle through angles automatically.</p>
+                  </div>
+                  <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-ink-800 bg-slate-950 px-3 py-2 text-xs font-semibold uppercase text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={replaceExisting}
+                      onChange={(event) => setReplaceExisting(event.target.checked)}
+                      className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-ink-400 focus:ring-ink-400"
+                    />
+                    Replace
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleCaptureClick}
+                    className="flex flex-1 items-center justify-center rounded-2xl border-2 border-dashed border-white/40 px-4 py-3 text-center text-sm font-semibold text-white"
+                  >
+                    {`Capture ${getImageTypeLabel(currentImageType)}${activeUploads ? ` · ${activeUploads} uploading` : ''}`}
+                  </button>
+                  <input
+                    id="photo-upload"
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                </div>
+              </div>
+
+              {guidedCaptureActive && guidedCaptureStepType && (
+                <div className="mb-4 rounded-2xl border border-ink-800 bg-slate-950 p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-white">Guided capture</p>
+                    <button
+                      type="button"
+                      onClick={handleGuidedCancel}
+                      className="text-xs font-semibold uppercase tracking-wide text-rose-200"
+                    >
+                      End
+                    </button>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-200">
+                    {guidedStepIsOptional ? 'Optional' : 'Next'}:{' '}
+                    <span className="font-semibold text-white">{getImageTypeLabel(guidedCaptureStepType)}</span>
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {IMAGE_TYPE_OPTIONS.map((option) => {
+                  const count = imageTypeCounts[option.value] ?? 0;
+                  const isActive = option.value === currentImageType;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setCurrentImageType(option.value)}
+                      className={`rounded-2xl border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ${count
+                        ? 'border-emerald-400/30 bg-emerald-900/30 text-emerald-200'
+                        : isActive
+                          ? 'border-white/70 bg-white/5 text-white'
+                          : 'border-ink-800 bg-slate-950 text-slate-300'
+                        }`}
+                    >
+                      <span className="block truncate">{option.label}</span>
+                      <span className="text-[10px] font-normal text-slate-400">
+                        {count ? `${count} up` : isActive ? 'Next' : 'Queued'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {uploadMessage && <p className="mt-3 text-xs text-slate-400">{uploadMessage}</p>}
+
+              <div className="mt-4">
+                <PhotoGrid
+                  images={images}
+                  onDelete={handleDeleteImage}
+                  deletingFileName={deletingFileName}
+                />
+              </div>
+            </div>
+          )}
         </section>
+
 
         {/* Enhanced eBay Descriptions Section (Accordion List View) */}
         <section className="rounded-3xl bg-ink-900 p-4 shadow-card">
@@ -770,7 +745,7 @@ export function CopyDetailPage() {
                             {desc.model}
                           </span>
                           <span className="text-[10px] text-slate-500">
-                            {new Date(desc.created_at).toLocaleDateString()}
+                            {formatRelativeTime(desc.created_at)}
                           </span>
                         </div>
                         <span className="text-[10px] font-medium text-slate-500">{charCount} chars</span>
@@ -896,8 +871,8 @@ export function CopyDetailPage() {
     );
   }
 
-  const pageTitle = copy?.grade ?? 'Copy details';
-  const pageSubtitle = copy?.raw_slabbed ?? copy?.format ?? 'Copy overview';
+  const pageTitle = series?.title ?? 'Copy details';
+  const pageSubtitle = issue?.issue_nr ? `Issue #${issue.issue_nr}` : `Copy #${copyId}`;
 
   return (
     <PageLayout
